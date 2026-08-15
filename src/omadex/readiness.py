@@ -16,13 +16,22 @@ from pathlib import Path
 from omadex import config as config_module
 from omadex.config import DESCRIPTIONS, Settings, label
 
-# The BlueFerry method OmaDex needs. It exists only on the patched backend
-# until the pull request lands upstream.
+# The BlueFerry method OmaDex needs to enumerate the phonebook. It landed
+# upstream after 0.7.1, so an older backend is simply out of date.
 REQUIRED_BLUEFERRY_METHOD = "ListContacts"
-BLUEFERRY_FORK_HINT = (
-    "This backend has no ListContacts method, which BlueFerry added after "
-    "0.7.1. Upgrade blueferry-backend, or build it from BlueFerry's main "
-    "branch until the next release."
+
+# BlueFerry is not packaged in any repository, so both hints give the build.
+BLUEFERRY_BUILD = (
+    "git clone https://github.com/erikwb/blueferry && cd blueferry && "
+    "./build.sh -si"
+)
+BLUEFERRY_OUTDATED_HINT = (
+    "This backend has no ListContacts, which BlueFerry added after 0.7.1. "
+    f"Rebuild it from source:\n{BLUEFERRY_BUILD}"
+)
+BLUEFERRY_MISSING_HINT = (
+    "Install BlueFerry and pair your iPhone. It is not in any package "
+    f"repository, so build it from source:\n{BLUEFERRY_BUILD}"
 )
 
 READY = "ready"          # configured, reachable, has something to give
@@ -183,8 +192,7 @@ def check_blueferry(settings: Settings) -> Readiness:
     if not shutil.which("blueferry"):
         return Readiness(
             "blueferry", MISSING, "BlueFerry is not installed",
-            "Install blueferry-backend (0.7.1 or newer, with ListContacts) "
-            "and pair your iPhone.",
+            BLUEFERRY_MISSING_HINT,
         )
     try:
         introspection = _introspect_blueferry()
@@ -198,7 +206,7 @@ def check_blueferry(settings: Settings) -> Readiness:
         return Readiness(
             "blueferry", BLOCKED,
             f"backend has no {REQUIRED_BLUEFERRY_METHOD} method",
-            BLUEFERRY_FORK_HINT,
+            BLUEFERRY_OUTDATED_HINT,
         )
     return Readiness("blueferry", READY, "backend supports ListContacts")
 

@@ -56,7 +56,7 @@ def test_a_backend_without_listcontacts_is_named_as_the_problem(monkeypatch) -> 
 
     assert found.state == BLOCKED
     assert "ListContacts" in found.detail
-    assert "ListContacts" in found.hint
+    assert "erikwb/blueferry" in found.hint
 
 
 def test_a_patched_backend_is_ready(monkeypatch) -> None:
@@ -76,7 +76,7 @@ def test_blueferry_absent_entirely_says_what_to_install(monkeypatch) -> None:
     found = check_blueferry(Settings(DEFAULTS))
 
     assert found.state == MISSING
-    assert "blueferry-backend" in found.hint
+    assert "erikwb/blueferry" in found.hint
 
 
 def test_notmuch_exiting_zero_with_no_database_is_not_ready(monkeypatch) -> None:

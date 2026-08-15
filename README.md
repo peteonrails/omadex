@@ -46,8 +46,13 @@ nothing and the overlay tells you what to set up.
 ### The iPhone source needs a recent BlueFerry
 
 OmaDex enumerates the phonebook with BlueFerry's `ListContacts` D-Bus method,
-which was added after 0.7.1. If your `blueferry-backend` predates it, build
-from BlueFerry's `main` until the next release.
+which was added after 0.7.1. BlueFerry is not in any package repository, so
+build it from source:
+
+```bash
+git clone https://github.com/erikwb/blueferry
+cd blueferry && ./build.sh -si
+```
 
 `omadex doctor` detects a backend without the method and says so. Without that
 check the failure is silent: the phone stays paired, the daemon stays healthy,
