@@ -59,7 +59,7 @@ contacts simply never arrive.
 ```bash
 ./build.sh -si            # build and install the Arch package
 omadex plugin install     # copy the overlay into ~/.config/omarchy/plugins
-omarchy plugin enable omadex.contacts
+omarchy plugin enable io.github.peteonrails.omadex
 omadex sync
 ```
 
@@ -67,21 +67,21 @@ Or install the overlay straight from this repository:
 
 ```bash
 omarchy plugin add https://github.com/peteonrails/omadex
-omarchy plugin enable omadex.contacts
+omarchy plugin enable io.github.peteonrails.omadex
 ```
 
 Bind the overlay by adding this to `~/.config/hypr/bindings.lua`:
 
 ```lua
 o.bind("SUPER + CTRL + ALT + C", "Contacts",
-       "omarchy-shell shell toggle omadex.contacts '{}'")
+       "omarchy-shell shell toggle io.github.peteonrails.omadex '{}'")
 ```
 
 ### Removing it
 
 ```bash
-omarchy plugin disable omadex.contacts
-omadex plugin remove          # deletes ~/.config/omarchy/plugins/omadex.contacts
+omarchy plugin disable io.github.peteonrails.omadex
+omadex plugin remove          # deletes ~/.config/omarchy/plugins/io.github.peteonrails.omadex
 sudo pacman -R omadex         # if installed as a package
 ```
 

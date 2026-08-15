@@ -176,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
                 source = Path(__file__).resolve().parents[2]
             target = (Path(os.environ.get("XDG_CONFIG_HOME",
                                           Path.home() / ".config"))
-                      / "omarchy" / "plugins" / "omadex.contacts")
+                      / "omarchy" / "plugins" / "io.github.peteonrails.omadex")
             if args.action == "remove":
                 for name in ("manifest.json", "OmaDex.qml"):
                     (target / name).unlink(missing_ok=True)
@@ -192,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"installed the overlay to {target}")
             subprocess.run(["omarchy-shell", "shell", "rescanPlugins"],
                            capture_output=True, check=False)
-            print("run: omarchy plugin enable omadex.contacts")
+            print("run: omarchy plugin enable io.github.peteonrails.omadex")
             return 0
 
         if args.command == "doctor":

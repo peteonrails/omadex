@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "omadex.contacts",
+  "id": "io.github.peteonrails.omadex",
   "name": "OmaDex",
   "version": "1.0.0",
   "author": "Pete Jackson",

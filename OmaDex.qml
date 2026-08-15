@@ -100,7 +100,7 @@ Item {
   function dismiss() {
     root.opened = false
     if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "omadex.contacts")
+      root.shell.hide((root.manifest && root.manifest.id) || "io.github.peteonrails.omadex")
   }
 
   function toggle() {
