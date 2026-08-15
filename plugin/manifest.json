@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "omadex.contacts",
+  "name": "OmaDex",
+  "version": "1.0.0",
+  "author": "Pete Jackson",
+  "description": "Search every address book you have and act on a contact",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "OmaDex.qml"
+  }
+}

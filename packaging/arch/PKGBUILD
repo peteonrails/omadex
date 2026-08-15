@@ -1,0 +1,72 @@
+# Maintainer: Pete Jackson <pete@peteonrails.com>
+pkgname=omadex
+pkgver=1.0.0
+pkgrel=1
+pkgdesc='Contact aggregator for Omarchy: one address layer over many address books'
+arch=('any')
+url='https://github.com/peteonrails/omadex'
+license=('MIT')
+depends=(
+  'python'
+  'wl-clipboard'
+  'xdg-utils'
+)
+optdepends=(
+  'abook: plain-text address book source'
+  'blueferry-backend: iPhone phonebook source (needs the fork with ListContacts)'
+  'evolution-data-server: Evolution source, and any account attached to it'
+  'neomutt: mail alias source, and composing to a contact'
+  'notmuch: correspondent source, once a maildir is indexed'
+  'omarchy: the Quickshell overlay and its launch helpers'
+  'python-dbus: required by the iPhone source'
+  'vdirsyncer: CardDAV contacts synced to a local vdir'
+)
+makedepends=(
+  'python-build'
+  'python-installer'
+  'python-setuptools'
+  'python-wheel'
+)
+checkdepends=(
+  'python-pytest'
+  'ruff'
+)
+source=("$pkgname-$pkgver.tar.gz")
+# build.sh writes the digest beside this file after creating its deterministic
+# working-tree snapshot. The digest file is ignored and excluded from source.
+sha256sums=("$(<.source-sha256)")
+
+_site="usr/lib/python$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')/site-packages"
+
+build() {
+  cd "$pkgname-$pkgver"
+  rm -rf -- build dist
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  ruff check .
+  # The suite must pass with none of the optional sources installed: every
+  # adapter is stubbed or skipped, and nothing touches the operator's data.
+  PYTHONPATH="$PWD/src" python -m pytest -q
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # The overlay cannot be installed by the package: Omarchy reads third-party
+  # plugins from ~/.config/omarchy/plugins, which is not ours to write.
+  # `omadex plugin install` copies it there.
+  install -Dm644 plugin/manifest.json "$pkgdir/usr/share/$pkgname/plugin/manifest.json"
+  install -Dm644 plugin/OmaDex.qml "$pkgdir/usr/share/$pkgname/plugin/OmaDex.qml"
+
+  # Shipped but not enabled. The overlay talks to the CLI; the daemon exists
+  # for other D-Bus clients and is opt-in until something needs it.
+  install -Dm644 systemd/omadex.service \
+    "$pkgdir/usr/lib/systemd/user/omadex.service"
+
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=OmaDex contact aggregator
+Documentation=https://github.com/peteonrails/omadex
+# BlueFerry is one source among several; OmaDex still runs without it.
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/omadexd
+Restart=on-failure
+RestartSec=5
+# Reads address books and talks to the session bus. Nothing else.
+PrivateNetwork=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%S/omadex
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

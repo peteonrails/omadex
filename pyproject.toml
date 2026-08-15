@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omadex"
+version = "1.0.0"
+description = "Contact aggregator for Omarchy: one address layer over many address books"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = []
+
+[project.scripts]
+omadex = "omadex.cli:main"
+omadexd = "omadex.daemon:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 92
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
