@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omadex"
-version = "1.0.0"
+version = "1.0.1"
 description = "Contact aggregator for Omarchy: one address layer over many address books"
 requires-python = ">=3.12"
 license = "MIT"
