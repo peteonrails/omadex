@@ -37,22 +37,21 @@ nothing and the overlay tells you what to set up.
 | Source | Needs | Preloads a contact when opened |
 |---|---|---|
 | abook | `abook` | no — abook cannot open at a record |
-| iPhone | `blueferry-backend` **from the fork** | no — no thread selector exists |
+| iPhone | `blueferry-backend` with `ListContacts` | no — no thread selector exists |
 | Evolution | `evolution-data-server` | needs `gnome-contacts` |
 | neomutt | `neomutt` | yes — composes to the address |
 | Mail | `notmuch` with an indexed maildir | yes — searches mail with them |
 | CardDAV | `vdirsyncer` writing a vdir | yes — opens the vCard |
 
-### The iPhone source needs a patched BlueFerry
+### The iPhone source needs a recent BlueFerry
 
-OmaDex enumerates the phonebook with a `ListContacts` D-Bus method that
-upstream BlueFerry does not have yet. Until that lands, install
-**`blueferry-backend`** from the fork. The GTK, Qt and Quickshell clients are
-unaffected — only that one package changes.
+OmaDex enumerates the phonebook with BlueFerry's `ListContacts` D-Bus method,
+which was added after 0.7.1. If your `blueferry-backend` predates it, build
+from BlueFerry's `main` until the next release.
 
-`omadex doctor` detects an unpatched backend and says so. Without it the
-failure is silent: the phone stays paired, the daemon stays healthy, and
-contacts simply never arrive.
+`omadex doctor` detects a backend without the method and says so. Without that
+check the failure is silent: the phone stays paired, the daemon stays healthy,
+and contacts simply never arrive.
 
 ## Install
 

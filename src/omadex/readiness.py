@@ -20,9 +20,9 @@ from omadex.config import DESCRIPTIONS, Settings, label
 # until the pull request lands upstream.
 REQUIRED_BLUEFERRY_METHOD = "ListContacts"
 BLUEFERRY_FORK_HINT = (
-    "Install blueferry-backend from the OmaDex fork: it adds ListContacts, "
-    "which upstream does not have yet. The GTK, Qt and Quickshell clients are "
-    "unaffected — only the backend package needs replacing."
+    "This backend has no ListContacts method, which BlueFerry added after "
+    "0.7.1. Upgrade blueferry-backend, or build it from BlueFerry's main "
+    "branch until the next release."
 )
 
 READY = "ready"          # configured, reachable, has something to give
@@ -183,8 +183,8 @@ def check_blueferry(settings: Settings) -> Readiness:
     if not shutil.which("blueferry"):
         return Readiness(
             "blueferry", MISSING, "BlueFerry is not installed",
-            "Install blueferry-backend from the OmaDex fork and pair your "
-            "iPhone. Upstream BlueFerry cannot enumerate contacts yet.",
+            "Install blueferry-backend (0.7.1 or newer, with ListContacts) "
+            "and pair your iPhone.",
         )
     try:
         introspection = _introspect_blueferry()

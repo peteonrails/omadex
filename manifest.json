@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.peteonrails.omadex",
   "name": "OmaDex",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "Pete Jackson",
   "description": "Search every address book you have and act on a contact",
   "kinds": [

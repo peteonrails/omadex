@@ -43,7 +43,7 @@ def test_a_missing_address_book_says_what_to_install(tmp_path) -> None:
     assert "abook" in found.hint
 
 
-def test_an_unpatched_blueferry_backend_is_named_as_the_problem(monkeypatch) -> None:
+def test_a_backend_without_listcontacts_is_named_as_the_problem(monkeypatch) -> None:
     """The failure that looks like nothing is wrong: paired phone, no contacts."""
     monkeypatch.setattr(readiness.shutil, "which", lambda _name: "/usr/bin/blueferry")
     monkeypatch.setattr(
@@ -56,7 +56,7 @@ def test_an_unpatched_blueferry_backend_is_named_as_the_problem(monkeypatch) -> 
 
     assert found.state == BLOCKED
     assert "ListContacts" in found.detail
-    assert "fork" in found.hint
+    assert "ListContacts" in found.hint
 
 
 def test_a_patched_backend_is_ready(monkeypatch) -> None:
@@ -70,13 +70,13 @@ def test_a_patched_backend_is_ready(monkeypatch) -> None:
     assert check_blueferry(Settings(DEFAULTS)).state == READY
 
 
-def test_blueferry_absent_entirely_points_at_the_fork(monkeypatch) -> None:
+def test_blueferry_absent_entirely_says_what_to_install(monkeypatch) -> None:
     monkeypatch.setattr(readiness.shutil, "which", lambda _name: None)
 
     found = check_blueferry(Settings(DEFAULTS))
 
     assert found.state == MISSING
-    assert "fork" in found.hint
+    assert "blueferry-backend" in found.hint
 
 
 def test_notmuch_exiting_zero_with_no_database_is_not_ready(monkeypatch) -> None:
