@@ -63,12 +63,41 @@ omarchy plugin enable omadex.contacts
 omadex sync
 ```
 
+Or install the overlay straight from this repository:
+
+```bash
+omarchy plugin add https://github.com/peteonrails/omadex
+omarchy plugin enable omadex.contacts
+```
+
 Bind the overlay by adding this to `~/.config/hypr/bindings.lua`:
 
 ```lua
 o.bind("SUPER + CTRL + ALT + C", "Contacts",
        "omarchy-shell shell toggle omadex.contacts '{}'")
 ```
+
+### Removing it
+
+```bash
+omarchy plugin disable omadex.contacts
+omadex plugin remove          # deletes ~/.config/omarchy/plugins/omadex.contacts
+sudo pacman -R omadex         # if installed as a package
+```
+
+Your contacts are untouched — OmaDex only ever read them. To drop its own
+derived data as well, delete `~/.local/state/omadex/` and
+`~/.config/omadex/`, and remove the keybinding from
+`~/.config/hypr/bindings.lua`.
+
+### External dependencies
+
+`python` and `wl-clipboard` are required; `xdg-utils` is used to open mail and
+vCard files. Every contact source is optional — see the table above — and
+OmaDex runs with any subset installed, including none. The Omarchy launch
+helpers (`omarchy-launch-terminal`, `omarchy-launch-or-focus-tui`) are used to
+open a source's own application. Nothing is bundled or vendored; there are no
+Python dependencies outside the standard library.
 
 ## Command line
 

@@ -59,8 +59,8 @@ package() {
   # The overlay cannot be installed by the package: Omarchy reads third-party
   # plugins from ~/.config/omarchy/plugins, which is not ours to write.
   # `omadex plugin install` copies it there.
-  install -Dm644 plugin/manifest.json "$pkgdir/usr/share/$pkgname/plugin/manifest.json"
-  install -Dm644 plugin/OmaDex.qml "$pkgdir/usr/share/$pkgname/plugin/OmaDex.qml"
+  install -Dm644 manifest.json "$pkgdir/usr/share/$pkgname/plugin/manifest.json"
+  install -Dm644 OmaDex.qml "$pkgdir/usr/share/$pkgname/plugin/OmaDex.qml"
 
   # Shipped but not enabled. The overlay talks to the CLI; the daemon exists
   # for other D-Bus clients and is opt-in until something needs it.

@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
             # a user-level step rather than something the PKGBUILD does.
             source = Path("/usr/share/omadex/plugin")
             if not source.is_dir():
-                source = Path(__file__).resolve().parents[2] / "plugin"
+                source = Path(__file__).resolve().parents[2]
             target = (Path(os.environ.get("XDG_CONFIG_HOME",
                                           Path.home() / ".config"))
                       / "omarchy" / "plugins" / "omadex.contacts")
