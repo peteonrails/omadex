@@ -8,6 +8,8 @@ overlay.
 It stores no contacts of its own. Everything it shows belongs to a source, and
 every merged person can tell you which source each detail came from.
 
+![Searching every address book at once](docs/search.png)
+
 ## What it does
 
 - **Search everything at once.** `SUPER+CTRL+ALT+C`, type, Enter.
@@ -19,6 +21,11 @@ every merged person can tell you which source each detail came from.
   for you to decide, and your decision survives every later sync.
 - **Copy anything.** Click an address or a street address to put it on the
   clipboard.
+
+Expanding a contact shows the record each source contributed, so a merge can
+always be explained — and clicking one opens that application.
+
+![The record each source contributed](docs/provenance.png)
 
 ## Requirements
 
