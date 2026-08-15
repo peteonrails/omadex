@@ -61,11 +61,13 @@ and contacts simply never arrive.
 ## Install
 
 ```bash
-./build.sh -si            # build and install the Arch package
+omarchy pkg aur add omadex
 omadex plugin install     # copy the overlay into ~/.config/omarchy/plugins
 omarchy plugin enable io.github.peteonrails.omadex
 omadex sync
 ```
+
+Or build from a checkout with `./build.sh -si` instead of the first line.
 
 Or install the overlay straight from this repository:
 
@@ -73,6 +75,9 @@ Or install the overlay straight from this repository:
 omarchy plugin add https://github.com/peteonrails/omadex
 omarchy plugin enable io.github.peteonrails.omadex
 ```
+
+The plugin is only the interface. It needs the `omadex` package for anything
+to appear, and says so if it is missing.
 
 Bind the overlay by adding this to `~/.config/hypr/bindings.lua`:
 
@@ -86,7 +91,7 @@ o.bind("SUPER + CTRL + ALT + C", "Contacts",
 ```bash
 omarchy plugin disable io.github.peteonrails.omadex
 omadex plugin remove          # deletes ~/.config/omarchy/plugins/io.github.peteonrails.omadex
-sudo pacman -R omadex         # if installed as a package
+omarchy pkg drop omadex       # if installed as a package
 ```
 
 Your contacts are untouched — OmaDex only ever read them. To drop its own

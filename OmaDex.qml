@@ -41,6 +41,12 @@ Item {
   property bool recordsExpanded: false
   property bool recordsLoaded: false
 
+  // Set when a query produces nothing at all within the watchdog window. The
+  // usual cause is the omadex package not being installed: someone can add
+  // this plugin from the marketplace without it, and the overlay would
+  // otherwise show an empty card with no hint that anything is wrong.
+  property bool backendMissing: false
+
   // Source keys are internal; the labels come from omadex so the two cannot
   // drift apart. "blueferry" is a package name, not something to show someone
   // reading a contact card.
@@ -129,6 +135,7 @@ Item {
       : ["/usr/bin/env", "omadex", "--json", "list",
          "--limit", String(root.pageSize), "--offset", "0"]
     root.searching = true
+    watchdog.restart()
     search.running = true
   }
 
@@ -147,7 +154,16 @@ Item {
 
   function applyResults(raw) {
     root.searching = false
+    watchdog.stop()
+    root.backendMissing = false
     var parsed
+    if (!raw || raw.trim().length === 0) {
+      // `env` starts fine and then fails to exec a missing omadex, so the
+      // process "succeeds" with no output rather than failing to start.
+      root.backendMissing = true
+      results.clear()
+      return
+    }
     try {
       parsed = JSON.parse(raw)
     } catch (error) {
@@ -387,6 +403,16 @@ Item {
   }
 
   ListModel { id: results }
+
+  // A query that never answers means the backend is not there to answer it.
+  Timer {
+    id: watchdog
+    interval: 3000
+    onTriggered: if (root.searching) {
+      root.searching = false
+      root.backendMissing = true
+    }
+  }
 
   Timer {
     id: debounce
@@ -1108,12 +1134,18 @@ Item {
 
           Column {
             anchors.centerIn: parent
+            // An explicit width is required: children sizing themselves from
+            // `parent.width` inside a Column that sizes itself from its
+            // children resolves to zero, and the whole empty state renders
+            // invisibly. That is why it has never once been seen.
+            width: parent.width - Style.spacing.md * 2
             spacing: Style.space(8)
             visible: results.count === 0 && !root.settingsOpen
-                     && root.detail === null && !root.onboarding
+                     && root.detail === null
+                     && (!root.onboarding || root.backendMissing)
 
             Text {
-              text: root.lastError ? "󰀦" : "󰀄"
+              text: (root.lastError || root.backendMissing) ? "󰀦" : "󰀄"
               color: root.selectedText
               opacity: 0.8
               font.family: root.fontFamily
@@ -1123,7 +1155,12 @@ Item {
             }
 
             Text {
-              text: root.lastError ? root.lastError
+              text: root.backendMissing
+                    ? "The omadex package is not installed.\n\n"
+                      + "This plugin is only the interface. Install the "
+                      + "backend, then reopen:\n\n    omarchy pkg aur add omadex\n"
+                      + "    omadex sync"
+                    : root.lastError ? root.lastError
                     : root.searching ? "Searching…"
                     : root.filterText ? "No contact matches “" + root.filterText + "”"
                     : "No contacts yet — run omadex sync"
