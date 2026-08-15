@@ -168,3 +168,36 @@ def test_the_launcher_runs_detached_from_omadex(settings, monkeypatch) -> None:
 
     assert captured["kwargs"]["start_new_session"] is True
     assert captured["argv"][0] == "omarchy-launch-or-focus-tui"
+
+
+def test_blueferry_pages_until_empty_not_until_short(monkeypatch) -> None:
+    """The backend clamps `limit`, so a full page can look partial."""
+    from omadex.sources import blueferry
+
+    served = [[{"name": f"P{i}", "phones": [], "emails": []} for i in range(150)],
+              [{"name": "last", "phones": [], "emails": []}],
+              []]
+    calls = []
+
+    class FakeIface:
+        def ListContacts(self, offset, limit, timeout=None):
+            calls.append((int(offset), int(limit)))
+            import json as _json
+            return _json.dumps(served[len(calls) - 1])
+
+    class FakeBus:
+        @staticmethod
+        def get_object(name, path):
+            return object()
+
+    fake = type("dbus", (), {
+        "SessionBus": staticmethod(FakeBus),
+        "Interface": staticmethod(lambda *a, **k: FakeIface()),
+        "UInt32": int,
+    })
+    monkeypatch.setitem(__import__("sys").modules, "dbus", fake)
+
+    records = blueferry.load_blueferry(page=250)
+
+    assert len(records) == 151          # would be 150 if a short page ended it
+    assert [offset for offset, _ in calls] == [0, 150, 151]

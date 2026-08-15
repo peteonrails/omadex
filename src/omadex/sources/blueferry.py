@@ -11,9 +11,16 @@ either lifting another application's secret or reimplementing its crypto.
 from __future__ import annotations
 
 import json
+import logging
 
 from omadex.limits import MAX_PAGE
 from omadex.models import RawRecord
+
+log = logging.getLogger(__name__)
+
+# A backend that ignored `offset` would page forever; stop well past any
+# plausible phonebook rather than trusting it to terminate.
+MAX_ENUMERATED_CONTACTS = 100_000
 
 BUS_NAME = "io.weirdware.BlueFerry"
 OBJECT_PATH = "/io/weirdware/BlueFerry"
@@ -45,7 +52,11 @@ def load_blueferry(page: int = MAX_PAGE) -> list[RawRecord]:
                 phones=tuple(str(value) for value in item.get("phones", [])),
                 emails=tuple(str(value) for value in item.get("emails", [])),
             ))
-        if len(batch) < page:
-            break
         offset += len(batch)
+        # A short page does not mean the end: the backend clamps `limit` to
+        # its own maximum, so asking for more than it allows returns a full
+        # page that merely looks partial. Only an empty reply ends the walk.
+        if len(records) >= MAX_ENUMERATED_CONTACTS:
+            log.warning("stopped after %d contacts", len(records))
+            break
     return records
