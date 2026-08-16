@@ -3,16 +3,9 @@ from __future__ import annotations
 
 import pytest
 
-from omadex import store as store_module
 from omadex.models import VERDICT_DISTINCT, Identity, Override, RawRecord, ReviewItem
 from omadex.normalize import email_key, names_agree, phone_key
 from omadex.sources.abook import load_abook
-
-
-@pytest.fixture
-def store(tmp_path):
-    with store_module.open_store(tmp_path / "omadex" / "contacts.sqlite") as opened:
-        yield opened
 
 
 def identity(name, keys, sources=("abook",)) -> Identity:

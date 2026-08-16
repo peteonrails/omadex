@@ -8,15 +8,19 @@ than by row id because source ids are not stable (abook renumbers on edit).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
 
 from omadex import config as config_module
+from omadex.crypto import KeyRing, StorageUnavailable, is_encrypted
 from omadex.limits import MAX_PAGE, MAX_SEARCH_RESULTS
 from omadex.models import Identity, Override, RawRecord, ReviewItem
+
+log = logging.getLogger(__name__)
 
 STATE_DIR = Path(
     os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")
@@ -50,18 +54,12 @@ CREATE TABLE IF NOT EXISTS review (
 CREATE TABLE IF NOT EXISTS overrides (
     left_key   TEXT NOT NULL,
     right_key  TEXT NOT NULL,
-    verdict    TEXT NOT NULL,
+    payload    TEXT NOT NULL,
     created_at REAL NOT NULL DEFAULT (unixepoch('subsec')),
     UNIQUE(left_key, right_key)
 );
 CREATE INDEX IF NOT EXISTS idx_addresses_key ON addresses(address_key);
 CREATE INDEX IF NOT EXISTS idx_records_identity ON records(identity_key);
-CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5(
-    identity_key UNINDEXED,
-    name,
-    addresses,
-    tokenize = "unicode61 remove_diacritics 2"
-);
 """
 
 
@@ -82,43 +80,159 @@ def _connect(path: Path | None = None) -> sqlite3.Connection:
 
 
 @contextmanager
-def open_store(path: Path | None = None):
-    """Open the configured database, or an explicit one for tests."""
+def open_store(
+    path: Path | None = None,
+    keyring: KeyRing | None = None,
+    *,
+    encrypt: bool | None = None,
+) -> Iterator[Store]:
+    """Open the configured database, or an explicit one for tests.
+
+    Encryption is on unless the user turns it off. A wallet that cannot supply
+    a key is fatal rather than a silent downgrade to plaintext: contacts are
+    exactly the data someone would be dismayed to find unprotected.
+
+    `encrypt=False` asks for plaintext outright. Passing no keyring cannot
+    mean that, because the common call passes none and must still be
+    encrypted — so the two possible intentions behind an absent keyring are
+    kept apart here rather than guessed at.
+    """
+    settings = config_module.load()
+    if encrypt is None:
+        encrypt = settings.encrypt_store
+    if keyring is None and encrypt:
+        try:
+            keyring = KeyRing.open()
+        except StorageUnavailable as error:
+            raise StorageUnavailable(
+                f"{error}. Set store.encrypt to false in settings.json to "
+                "store contacts in the clear instead."
+            ) from error
+    carried: list[Override] = []
+    if keyring is not None:
+        carried = _discard_plaintext_store(path or settings.store_path)
     connection = _connect(path)
     try:
         with connection:
             connection.executescript(_SCHEMA)
-        yield Store(connection)
+        store = Store(connection, keyring)
+        for override in carried:
+            store.set_override(override)
+        yield store
     finally:
         connection.close()
 
 
+def _carry_overrides(probe: sqlite3.Connection) -> list[Override]:
+    """Read merge decisions out of a store in whichever shape it was written.
+
+    Two unencrypted shapes exist: releases before encryption kept the verdict
+    in its own column, and this version with encryption turned off keeps the
+    whole decision in a plaintext payload. Both are somebody's hand-made
+    decisions and neither is worth losing to a schema change.
+    """
+    columns = {column[1] for column in probe.execute(
+        "PRAGMA table_info(overrides)")}
+    if "verdict" in columns:
+        return [
+            Override(row["left_key"], row["right_key"], row["verdict"])
+            for row in probe.execute(
+                "SELECT left_key, right_key, verdict FROM overrides")
+        ]
+    if "payload" not in columns:
+        return []
+    carried = []
+    for row in probe.execute("SELECT payload FROM overrides"):
+        try:
+            decision = json.loads(row["payload"])
+            carried.append(Override(
+                decision["left"], decision["right"], decision["verdict"]))
+        except (ValueError, KeyError, TypeError):
+            continue  # Encrypted or malformed; nothing to carry.
+    return carried
+
+
+def _discard_plaintext_store(database: Path) -> list[Override]:
+    """Replace a store written before encryption was turned on.
+
+    Rewriting the rows in place would leave the old values behind in the
+    file's free pages, so the file itself goes. Nothing is lost by that:
+    everything in it is rebuilt from the sources on the next sync, except
+    the merge decisions the user made by hand, which are returned here to be
+    written back into the encrypted store.
+    """
+    if not database.exists():
+        return []
+    carried: list[Override] = []
+    try:
+        with closing(sqlite3.connect(database)) as probe:
+            probe.row_factory = sqlite3.Row
+            names = {row["name"] for row in probe.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+            if "identities" not in names:
+                return []
+            row = probe.execute(
+                "SELECT payload FROM identities LIMIT 1").fetchone()
+            if row is not None and is_encrypted(row["payload"]):
+                return []
+            if "overrides" in names:
+                carried = _carry_overrides(probe)
+    except sqlite3.Error:
+        # Unreadable is not a reason to delete someone's file.
+        return []
+
+    log.warning("replacing the unencrypted store at %s", database)
+    for suffix in ("", "-wal", "-shm"):
+        Path(str(database) + suffix).unlink(missing_ok=True)
+    return carried
+
+
 class Store:
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(
+        self, connection: sqlite3.Connection, keyring: KeyRing | None = None
+    ) -> None:
         self._db = connection
+        self._keyring = keyring
+
+    def _seal(self, value: str) -> str:
+        return self._keyring.encrypt(value) if self._keyring else value
+
+    def _open(self, value: str) -> str:
+        return self._keyring.decrypt(value) if self._keyring else value
+
+    def _blind(self, value: str) -> str:
+        """Match on a keyed digest so lookup columns hold no addresses."""
+        return self._keyring.blind(value) if self._keyring else value
 
     # ---- overrides: the durable half -----------------------------------
 
     def overrides(self) -> list[Override]:
-        rows = self._db.execute(
-            "SELECT left_key, right_key, verdict FROM overrides"
-        ).fetchall()
-        return [Override(row["left_key"], row["right_key"], row["verdict"]) for row in rows]
+        rows = self._db.execute("SELECT payload FROM overrides").fetchall()
+        found = []
+        for row in rows:
+            data = json.loads(self._open(row["payload"]))
+            found.append(Override(data["left"], data["right"], data["verdict"]))
+        return found
 
     def set_override(self, override: Override) -> None:
         with self._db:
             self._db.execute(
-                "INSERT INTO overrides(left_key, right_key, verdict) VALUES (?, ?, ?)"
+                "INSERT INTO overrides(left_key, right_key, payload)"
+                " VALUES (?, ?, ?)"
                 " ON CONFLICT(left_key, right_key)"
-                " DO UPDATE SET verdict = excluded.verdict",
-                (override.left_key, override.right_key, override.verdict),
+                " DO UPDATE SET payload = excluded.payload",
+                (self._blind(override.left_key), self._blind(override.right_key),
+                 self._seal(json.dumps({
+                     "left": override.left_key, "right": override.right_key,
+                     "verdict": override.verdict,
+                 }))),
             )
 
     def clear_override(self, left_key: str, right_key: str) -> bool:
         with self._db:
             cursor = self._db.execute(
                 "DELETE FROM overrides WHERE left_key = ? AND right_key = ?",
-                (left_key, right_key),
+                (self._blind(left_key), self._blind(right_key)),
             )
         return cursor.rowcount > 0
 
@@ -135,7 +249,6 @@ class Store:
             self._db.execute("DELETE FROM records")
             self._db.execute("DELETE FROM addresses")
             self._db.execute("DELETE FROM review")
-            self._db.execute("DELETE FROM search")
             for identity in identities:
                 count += 1
                 # Deliberately not an upsert: two identities sharing a handle
@@ -144,41 +257,31 @@ class Store:
                 self._db.execute(
                     "INSERT INTO identities(key, display_name, payload)"
                     " VALUES (?, ?, ?)",
-                    (identity.key, identity.display_name,
-                     json.dumps(identity.to_dict(), ensure_ascii=False)),
+                    (self._blind(identity.key), self._seal(identity.display_name),
+                     self._seal(json.dumps(identity.to_dict(), ensure_ascii=False))),
                 )
                 self._db.executemany(
                     "INSERT INTO records(identity_key, source, source_id, payload)"
                     " VALUES (?, ?, ?, ?)",
                     [
-                        (identity.key, record.source, record.source_id,
-                         json.dumps(record.to_dict(), ensure_ascii=False))
+                        (self._blind(identity.key), record.source,
+                         self._seal(record.source_id),
+                         self._seal(json.dumps(record.to_dict(), ensure_ascii=False)))
                         for record in identity.records
                     ],
                 )
                 self._db.executemany(
                     "INSERT OR IGNORE INTO addresses(identity_key, address_key)"
                     " VALUES (?, ?)",
-                    [(identity.key, key) for key in sorted(identity.keys)],
-                )
-                self._db.execute(
-                    "INSERT INTO search(identity_key, name, addresses)"
-                    " VALUES (?, ?, ?)",
-                    (
-                        identity.key,
-                        " ".join(identity.names),
-                        " ".join([
-                            *(key.partition(":")[2] for key in sorted(identity.keys)),
-                            *identity.postal,
-                        ]),
-                    ),
+                    [(self._blind(identity.key), self._blind(key))
+                     for key in sorted(identity.keys)],
                 )
             self._db.executemany(
                 "INSERT OR IGNORE INTO review(left_key, right_key, payload)"
                 " VALUES (?, ?, ?)",
                 [
-                    (item.left_key, item.right_key,
-                     json.dumps(item.to_dict(), ensure_ascii=False))
+                    (self._blind(item.left_key), self._blind(item.right_key),
+                     self._seal(json.dumps(item.to_dict(), ensure_ascii=False)))
                     for item in review
                 ],
             )
@@ -187,21 +290,38 @@ class Store:
     # ---- reads ----------------------------------------------------------
 
     def search(self, query: str, limit: int = MAX_SEARCH_RESULTS) -> list[dict]:
-        """Prefix search across names and addresses, best match first."""
-        terms = [term for term in _fts_terms(query) if term]
+        """Match names and addresses, best match first.
+
+        The scan happens here rather than in an index because an index of
+        plaintext names and addresses would defeat the encryption it sits
+        beside. A few thousand people is small enough that it does not matter.
+        """
+        terms = [term.casefold() for term in _search_terms(query) if term]
         if not terms:
             return []
-        expression = " AND ".join(f'"{term}"*' for term in terms)
-        try:
-            rows = self._db.execute(
-                "SELECT i.payload FROM search"
-                " JOIN identities i ON i.key = search.identity_key"
-                " WHERE search MATCH ? ORDER BY rank LIMIT ?",
-                (expression, max(1, min(int(limit), MAX_SEARCH_RESULTS))),
-            ).fetchall()
-        except sqlite3.OperationalError:
-            return []
-        return [json.loads(row["payload"]) for row in rows]
+
+        found: list[tuple[int, str, dict]] = []
+        for row in self._db.execute("SELECT payload FROM identities"):
+            person = json.loads(self._open(row["payload"]))
+            name = str(person.get("name", ""))
+            folded = name.casefold()
+            fields = [folded]
+            fields += [
+                key.partition(":")[2].casefold()
+                for key in person.get("phones", []) + person.get("emails", [])
+            ]
+            fields += [str(line).casefold() for line in person.get("postal", [])]
+            if not all(any(term in field for field in fields) for term in terms):
+                continue
+            # A name starting with the query outranks one merely containing
+            # it, which in turn outranks a match on an address alone.
+            first = terms[0]
+            rank = 0 if folded.startswith(first) else (1 if first in folded else 2)
+            found.append((rank, folded, person))
+
+        found.sort(key=lambda item: (item[0], item[1]))
+        bounded = max(1, min(int(limit), MAX_SEARCH_RESULTS))
+        return [person for _, _, person in found[:bounded]]
 
     def get(self, address_key: str) -> dict | None:
         row = self._db.execute(
@@ -210,17 +330,28 @@ class Store:
             " OR EXISTS (SELECT 1 FROM addresses a"
             "            WHERE a.identity_key = i.key AND a.address_key = ?)"
             " LIMIT 1",
-            (address_key, address_key),
+            (self._blind(address_key), self._blind(address_key)),
         ).fetchone()
-        return json.loads(row["payload"]) if row else None
+        return json.loads(self._open(row["payload"])) if row else None
 
     def list(self, offset: int = 0, limit: int = MAX_PAGE) -> list[dict]:
-        rows = self._db.execute(
-            "SELECT payload FROM identities ORDER BY display_name COLLATE NOCASE, key"
-            " LIMIT ? OFFSET ?",
-            (max(1, min(int(limit), MAX_PAGE)), max(0, int(offset))),
-        ).fetchall()
-        return [json.loads(row["payload"]) for row in rows]
+        """One page, ordered by name.
+
+        The database cannot order this: the name column is ciphertext, and
+        sorting ciphertext would page people in an order that means nothing.
+        So the set is decrypted and ordered here, which is affordable at this
+        size and keeps paging stable between calls.
+        """
+        return self._page(
+            self._db.execute("SELECT payload FROM identities"), offset, limit
+        )
+
+    def _page(self, rows, offset: int, limit: int) -> list[dict]:
+        people = [json.loads(self._open(row["payload"])) for row in rows]
+        people.sort(key=lambda person: (str(person.get("name", "")).casefold(),
+                                        person.get("key", "")))
+        start = max(0, int(offset))
+        return people[start:start + max(1, min(int(limit), MAX_PAGE))]
 
     def list_by_source(
         self, source: str, offset: int = 0, limit: int = MAX_PAGE
@@ -239,7 +370,7 @@ class Store:
             " LIMIT ? OFFSET ?",
             (source, max(1, min(int(limit), MAX_PAGE)), max(0, int(offset))),
         ).fetchall()
-        return [json.loads(row["payload"]) for row in rows]
+        return [json.loads(self._open(row["payload"])) for row in rows]
 
     def source_counts(self) -> dict[str, int]:
         """Records and people contributed, per source."""
@@ -254,7 +385,7 @@ class Store:
         rows = self._db.execute(
             "SELECT payload FROM review LIMIT ?", (max(1, int(limit)),)
         ).fetchall()
-        return [json.loads(row["payload"]) for row in rows]
+        return [json.loads(self._open(row["payload"])) for row in rows]
 
     def counts(self) -> dict[str, int]:
         def scalar(sql: str) -> int:
@@ -270,11 +401,12 @@ class Store:
 
     def records_for(self, identity_key: str) -> list[RawRecord]:
         rows = self._db.execute(
-            "SELECT payload FROM records WHERE identity_key = ?", (identity_key,)
+            "SELECT payload FROM records WHERE identity_key = ?",
+            (self._blind(identity_key),)
         ).fetchall()
         out = []
         for row in rows:
-            data = json.loads(row["payload"])
+            data = json.loads(self._open(row["payload"]))
             out.append(RawRecord(
                 source=data["source"],
                 source_id=data["source_id"],
@@ -288,21 +420,20 @@ class Store:
         return out
 
 
-_FTS_KEYWORDS = frozenset({"and", "or", "not", "near"})
+_QUERY_NOISE = frozenset({"and", "or", "not", "near"})
 
 
-def _fts_terms(query: str) -> list[str]:
-    """Strip FTS5 syntax; a contact search is not a query language.
+def _search_terms(query: str) -> list[str]:
+    """Split a query into terms; a contact search is not a query language.
 
-    Bare keywords are dropped too. Someone typing "smith or jones" wants both
-    names, not a boolean — and leaving "or" in as a literal term matches
-    nothing at all.
+    Bare boolean keywords are dropped. Someone typing "smith or jones" wants
+    both names, not an operator.
     """
     cleaned = "".join(
         character if character.isalnum() or character in "@.+-_ " else " "
         for character in (query or "")
     )
-    return [term for term in cleaned.split() if term.lower() not in _FTS_KEYWORDS]
+    return [term for term in cleaned.split() if term.lower() not in _QUERY_NOISE]
 
 
 def wipe(path: Path | None = None) -> None:

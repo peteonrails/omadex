@@ -82,6 +82,9 @@ DEFAULTS: dict = {
     },
     "store": {
         "path": "~/.local/state/omadex/contacts.sqlite",
+        # Contacts are encrypted at rest with a key held in the desktop
+        # wallet. Turning this off stores them in the clear.
+        "encrypt": True,
     },
 }
 
@@ -169,6 +172,10 @@ class Settings:
     def path_for(self, source: str) -> Path | None:
         raw = self.option(source, "path")
         return expand(raw) if raw else None
+
+    @property
+    def encrypt_store(self) -> bool:
+        return bool(self.data.get("store", {}).get("encrypt", True))
 
     @property
     def store_path(self) -> Path:
