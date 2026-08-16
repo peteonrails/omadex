@@ -4,11 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omadex"
-version = "1.0.4"
+version = "1.0.5"
 description = "Contact aggregator for Omarchy: one address layer over many address books"
 requires-python = ">=3.12"
 license = "MIT"
-dependencies = []
+# PyGObject is deliberately absent: the wallet is reached through the system
+# gobject bindings, which pip cannot usefully install alongside them.
+dependencies = ["cryptography"]
 
 [project.scripts]
 omadex = "omadex.cli:main"
