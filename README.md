@@ -48,7 +48,7 @@ nothing and the overlay tells you what to set up.
 | iPhone | `blueferry-backend` with `ListContacts` | no — no thread selector exists |
 | Evolution | `evolution-data-server` | needs `gnome-contacts` |
 | neomutt | `neomutt` | yes — composes to the address |
-| Mail | `notmuch` with an indexed maildir | yes — searches mail with them |
+| notmuch | `notmuch` with an indexed maildir | yes — searches mail with them |
 | CardDAV | `vdirsyncer` writing a vdir | yes — opens the vCard |
 
 ### The iPhone source is optional and self-contained
@@ -85,7 +85,10 @@ omarchy plugin enable io.github.peteonrails.omadex
 The plugin is only the interface. It needs the `omadex` package for anything
 to appear, and says so if it is missing.
 
-Bind the overlay by adding this to `~/.config/hypr/bindings.lua`:
+`omadex plugin install` also adds a launcher entry, so OmaDex can be opened
+from the Omarchy menu by name without a keybinding.
+
+For a key of its own, add this to `~/.config/hypr/bindings.lua`:
 
 ```lua
 o.bind("SUPER + CTRL + ALT + C", "Contacts",
@@ -96,7 +99,7 @@ o.bind("SUPER + CTRL + ALT + C", "Contacts",
 
 ```bash
 omarchy plugin disable io.github.peteonrails.omadex
-omadex plugin remove          # deletes ~/.config/omarchy/plugins/io.github.peteonrails.omadex
+omadex plugin remove          # deletes the overlay and its launcher entry
 omarchy pkg drop omadex       # if installed as a package
 ```
 
@@ -108,11 +111,14 @@ derived data as well, delete `~/.local/state/omadex/` and
 ### External dependencies
 
 `python` and `wl-clipboard` are required; `xdg-utils` is used to open mail and
-vCard files. Every contact source is optional — see the table above — and
-OmaDex runs with any subset installed, including none. The Omarchy launch
-helpers (`omarchy-launch-terminal`, `omarchy-launch-or-focus-tui`) are used to
-open a source's own application. Nothing is bundled or vendored; there are no
-Python dependencies outside the standard library.
+vCard files. Contacts are encrypted at rest, which needs
+`python-cryptography`, `python-gobject`, `libsecret` and a Secret Service
+provider such as `gnome-keyring`.
+
+Every contact source is optional — see the table above — and OmaDex runs with
+any subset installed, including none. The Omarchy launch helpers
+(`omarchy-launch-terminal`, `omarchy-launch-or-focus-tui`) are used to open a
+source's own application. Nothing is bundled or vendored.
 
 ## Command line
 
@@ -127,7 +133,7 @@ omadex review                     # merges held back for a human
 omadex link <a> <b>               # these two addresses are one person
 omadex unlink <a> <b>             # these two are not
 omadex sources                    # what is enabled, and where it reads from
-omadex sources disable Mail       # turn a source off
+omadex sources disable notmuch   # turn a source off
 ```
 
 ## How merging works
@@ -157,6 +163,12 @@ source, what it contributed, and where it reads from.
 Contacts live in `~/.local/state/omadex/contacts.sqlite` (0600, in a 0700
 directory), rebuilt from the sources on every sync. OmaDex sends nothing
 anywhere and has no network code.
+
+The file is encrypted: values are sealed with AES-GCM under a key kept in your
+desktop wallet, and the columns OmaDex has to match on hold a keyed digest
+rather than the address itself, so nothing legible is left in the file. Losing
+the key costs you nothing but a `omadex sync`, since everything except your own
+merge decisions is rebuilt from the sources.
 
 `omadexd` is packaged but not enabled. The overlay uses the CLI; the daemon
 exists to serve `io.omadex.Contacts1` to other clients, and is opt-in:

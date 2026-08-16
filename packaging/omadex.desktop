@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Name=OmaDex
+GenericName=Contacts
+Comment=Search every address book on this machine at once
+
+# OmaDex has no window of its own. The overlay belongs to the Omarchy shell,
+# so launching it means asking the shell to toggle the plugin — the same thing
+# the keybinding does. Starting a process here would open nothing.
+Exec=omarchy-shell shell toggle io.github.peteonrails.omadex {}
+Terminal=false
+
+# A layer surface never becomes a toplevel window, so a startup notification
+# would spin until it timed out.
+StartupNotify=false
+
+Icon=office-address-book
+Categories=Office;ContactManagement;
+Keywords=contacts;address book;addressbook;phone;email;abook;carddav;omadex;

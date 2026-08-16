@@ -30,6 +30,29 @@ from omadex.readiness import check_all, needs_onboarding
 from omadex.store import open_store
 
 
+def _plugin_source() -> Path:
+    """Where the overlay files are: installed by the package, or a checkout."""
+    packaged = Path("/usr/share/omadex/plugin")
+    return packaged if packaged.is_dir() else Path(__file__).resolve().parents[2]
+
+
+def _run_if_present(command: list[str]) -> None:
+    """Run a helper if this machine has it.
+
+    `omadex plugin install` is reachable on a machine without Omarchy, and a
+    missing helper is not a reason to fail an install that has already put the
+    files where they belong.
+    """
+    if shutil.which(command[0]) is None:
+        return
+    subprocess.run(command, capture_output=True, check=False)
+
+
+def _refresh_desktop_database(directory: Path) -> None:
+    """Let launchers that cache entries notice the new one."""
+    _run_if_present(["update-desktop-database", str(directory)])
+
+
 def _show(identity: dict) -> str:
     addresses = identity["emails"] + identity["phones"]
     trailer = f"  [{', '.join(label(s) for s in identity['sources'])}]"
@@ -171,16 +194,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "plugin":
             # A package cannot write into $HOME, so installing the overlay is
             # a user-level step rather than something the PKGBUILD does.
-            source = Path("/usr/share/omadex/plugin")
-            if not source.is_dir():
-                source = Path(__file__).resolve().parents[2]
+            source = _plugin_source()
             target = (Path(os.environ.get("XDG_CONFIG_HOME",
                                           Path.home() / ".config"))
                       / "omarchy" / "plugins" / "io.github.peteonrails.omadex")
+            # The launcher entry goes in with the overlay rather than with the
+            # package: it does nothing but toggle the overlay, so listing it
+            # for someone who installed only the CLI would offer them an
+            # application that cannot open.
+            entry = (Path(os.environ.get("XDG_DATA_HOME",
+                                         Path.home() / ".local/share"))
+                     / "applications" / "omadex.desktop")
             if args.action == "remove":
                 for name in ("manifest.json", "OmaDex.qml"):
                     (target / name).unlink(missing_ok=True)
                 target.rmdir() if target.is_dir() else None
+                entry.unlink(missing_ok=True)
                 print(f"removed {target}")
             else:
                 if not source.is_dir():
@@ -189,9 +218,18 @@ def main(argv: list[str] | None = None) -> int:
                 target.mkdir(parents=True, exist_ok=True)
                 for name in ("manifest.json", "OmaDex.qml"):
                     shutil.copyfile(source / name, target / name)
+                # Beside the overlay when packaged, under packaging/ in a
+                # checkout, which is the fallback `source` above resolves to.
+                desktop = source / "omadex.desktop"
+                if not desktop.is_file():
+                    desktop = source / "packaging" / "omadex.desktop"
+                if desktop.is_file():
+                    entry.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(desktop, entry)
                 print(f"installed the overlay to {target}")
-            subprocess.run(["omarchy-shell", "shell", "rescanPlugins"],
-                           capture_output=True, check=False)
+                print(f"and a launcher entry at {entry}")
+            _refresh_desktop_database(entry.parent)
+            _run_if_present(["omarchy-shell", "shell", "rescanPlugins"])
             print("run: omarchy plugin enable io.github.peteonrails.omadex")
             return 0
 

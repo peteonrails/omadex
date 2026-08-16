@@ -68,6 +68,11 @@ package() {
   install -Dm644 manifest.json "$pkgdir/usr/share/$pkgname/plugin/manifest.json"
   install -Dm644 OmaDex.qml "$pkgdir/usr/share/$pkgname/plugin/OmaDex.qml"
 
+  # Sits with the overlay, not in /usr/share/applications: the entry only
+  # toggles the overlay, so it is installed by `omadex plugin install`.
+  install -Dm644 packaging/omadex.desktop \
+    "$pkgdir/usr/share/$pkgname/plugin/omadex.desktop"
+
   # Shipped but not enabled. The overlay talks to the CLI; the daemon exists
   # for other D-Bus clients and is opt-in until something needs it.
   install -Dm644 systemd/omadex.service \
