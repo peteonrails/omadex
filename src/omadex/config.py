@@ -190,7 +190,22 @@ def _stored() -> dict:
         stored = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
+    _restrict(CONFIG_PATH, 0o600)
     return stored if isinstance(stored, dict) else {}
+
+
+def _restrict(path: Path, mode: int) -> None:
+    """Tighten a path that is more permissive than intended.
+
+    A file copied, restored from a backup, or written by an older version can
+    arrive world-readable. Checking on read means the correction happens once,
+    without waiting for the next write.
+    """
+    try:
+        if path.exists() and path.stat().st_mode & 0o777 != mode:
+            path.chmod(mode)
+    except OSError:
+        pass
 
 
 def load() -> Settings:

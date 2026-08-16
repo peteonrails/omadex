@@ -125,3 +125,17 @@ def test_a_saved_setting_does_not_freeze_todays_defaults(tmp_path, monkeypatch) 
     assert written == {"sources": {"abook": {"enabled": False}}}
     # The default is still supplied on read, not shadowed by a stored copy.
     assert config_module.load().option("abook", "launch")[0].startswith("omarchy")
+
+
+def test_settings_are_made_private_on_read(tmp_path, monkeypatch) -> None:
+    """A file restored from a backup can arrive world-readable."""
+    from omadex import config as config_module
+
+    monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / "settings.json")
+    (tmp_path / "settings.json").write_text('{"sources": {}}', encoding="utf-8")
+    (tmp_path / "settings.json").chmod(0o644)
+
+    config_module.load()
+
+    assert (tmp_path / "settings.json").stat().st_mode & 0o777 == 0o600
