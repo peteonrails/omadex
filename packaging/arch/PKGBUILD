@@ -1,6 +1,6 @@
 # Maintainer: Pete Jackson <pete@peteonrails.com>
 pkgname=omadex
-pkgver=1.0.5
+pkgver=1.0.6
 pkgrel=1
 pkgdesc='Contact aggregator for Omarchy: one address layer over many address books'
 arch=('any')
