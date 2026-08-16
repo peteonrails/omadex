@@ -1,12 +1,11 @@
-"""BlueFerry — the contacts already on the paired iPhone.
+"""The contacts on a paired iPhone, read over D-Bus.
 
-Read over D-Bus, never from `contacts.sqlite`. Those records are encrypted
-under a key BlueFerry owns in the Secret Service wallet, and that key is a
-trust boundary the daemon actively defends; reaching around it would mean
-either lifting another application's secret or reimplementing its crypto.
+Only the published interface is used. The backend keeps its own cache
+encrypted under a key it owns, so reaching around the service would mean
+lifting another application's secret or reimplementing its crypto.
 
-`ListContacts` (feature/list-contacts) exists because `FindContacts` answers
-"who owns this destination" and cannot answer "who is in the phonebook".
+`ListContacts` enumerates the phonebook; `FindContacts` answers only "who owns
+this destination" and cannot answer "who is in it".
 """
 from __future__ import annotations
 

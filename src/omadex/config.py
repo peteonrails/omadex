@@ -27,7 +27,7 @@ DIR_MODE = 0o700
 # is other people's data and must not reach a command line as text.
 #
 # Only some of these can genuinely preload a contact. abook has no option to
-# open at a given record (only --datafile and --mutt-query), and BlueFerry's
+# open at a given record (only --datafile and --mutt-query), and the iPhone
 # clients expose no thread selector, so those two open the application and
 # nothing more. Where a placeholder cannot be filled the entry is offered as
 # unavailable rather than launched half-formed.
@@ -108,7 +108,7 @@ LABELS: dict[str, str] = {
     "blueferry": "iPhone",
     "eds": "Evolution",
     "neomutt": "neomutt",
-    "notmuch": "Mail",
+    "notmuch": "notmuch",
     "vdir": "CardDAV",
 }
 

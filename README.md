@@ -5,8 +5,15 @@ have — your iPhone, abook, Evolution, neomutt aliases, indexed mail, CardDAV �
 merges them into one set of people, and puts that behind a keyboard-driven
 overlay.
 
-It stores no contacts of its own. Everything it shows belongs to a source, and
-every merged person can tell you which source each detail came from.
+OmaDex never writes to your address books. It does write one thing of its own:
+the claim that two records are the same person. No source made that claim —
+OmaDex did — so it keeps the evidence and shows its working. Expand any merged
+contact to see the record each source contributed and what joined them.
+
+The merged view is derived and rebuilt from the sources on every sync, so it
+can be thrown away at any time. The exception is your corrections: telling
+OmaDex that two people are the same, or that they are not, is the one thing it
+keeps.
 
 ![Searching every address book at once](docs/search.png)
 
@@ -22,8 +29,9 @@ every merged person can tell you which source each detail came from.
 - **Copy anything.** Click an address or a street address to put it on the
   clipboard.
 
-Expanding a contact shows the record each source contributed, so a merge can
-always be explained — and clicking one opens that application.
+Expanding a contact shows the record each source contributed, so OmaDex's
+judgement can always be checked against the sources it came from — and
+clicking one opens that application.
 
 ![The record each source contributed](docs/provenance.png)
 
@@ -43,20 +51,18 @@ nothing and the overlay tells you what to set up.
 | Mail | `notmuch` with an indexed maildir | yes — searches mail with them |
 | CardDAV | `vdirsyncer` writing a vdir | yes — opens the vCard |
 
-### The iPhone source needs a recent BlueFerry
+### The iPhone source is optional and self-contained
 
-OmaDex enumerates the phonebook with BlueFerry's `ListContacts` D-Bus method,
-which was added after 0.7.1. BlueFerry is not in any package repository, so
-build it from source:
+OmaDex talks to an already-installed BlueFerry backend over D-Bus, using its
+`ListContacts` method. It never fetches, builds, or installs that project:
+follow [BlueFerry's own installation
+instructions](https://github.com/erikwb/blueferry) if you want this source,
+and skip it otherwise. Every other source works without it.
 
-```bash
-git clone https://github.com/erikwb/blueferry
-cd blueferry && ./build.sh -si
-```
-
-`omadex doctor` detects a backend without the method and says so. Without that
-check the failure is silent: the phone stays paired, the daemon stays healthy,
-and contacts simply never arrive.
+`omadex doctor` reports whether the running backend exposes the method. Without
+that check the failure is silent: the phone stays paired, the daemon stays
+healthy, and contacts simply never arrive. If it is missing, the iPhone source
+stays unavailable and every other source carries on.
 
 ## Install
 
@@ -67,7 +73,7 @@ omarchy plugin enable io.github.peteonrails.omadex
 omadex sync
 ```
 
-Or build from a checkout with `./build.sh -si` instead of the first line.
+Or, from a checkout of this repository, `./build.sh -si` instead of the first line.
 
 Or install the overlay straight from this repository:
 

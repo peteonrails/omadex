@@ -20,7 +20,7 @@ from pathlib import Path
 from omadex.config import Settings
 
 # Applications that cannot open at a given contact. abook offers only
-# --datafile and --mutt-query; BlueFerry's clients expose no thread selector.
+# --datafile and --mutt-query; the iPhone clients expose no thread selector.
 # Recorded so a UI can say so rather than implying more than happens.
 OPENS_APPLICATION_ONLY = frozenset({"abook", "blueferry", "eds"})
 

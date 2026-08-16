@@ -126,6 +126,7 @@ def test_a_source_is_labelled_for_people_but_keyed_for_machines() -> None:
     from omadex.config import label, source_for_label
 
     assert label("blueferry") == "iPhone"
+    assert label("notmuch") == "notmuch"
     assert label("abook") == "abook"
     # Whatever a person saw in the interface is what they will type back.
     assert source_for_label("iPhone") == "blueferry"

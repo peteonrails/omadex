@@ -16,22 +16,21 @@ from pathlib import Path
 from omadex import config as config_module
 from omadex.config import DESCRIPTIONS, Settings, label
 
-# The BlueFerry method OmaDex needs to enumerate the phonebook. It landed
-# upstream after 0.7.1, so an older backend is simply out of date.
+# The backend method OmaDex needs to enumerate the phonebook. An older
+# backend that predates it is simply out of date.
 REQUIRED_BLUEFERRY_METHOD = "ListContacts"
 
-# BlueFerry is not packaged in any repository, so both hints give the build.
-BLUEFERRY_BUILD = (
-    "git clone https://github.com/erikwb/blueferry && cd blueferry && "
-    "./build.sh -si"
-)
+# OmaDex never fetches or builds another project. The hints name what is
+# needed and where its instructions live; installing it is the user's step,
+# taken deliberately and from its own maintainers.
+BLUEFERRY_HOME = "https://github.com/erikwb/blueferry"
 BLUEFERRY_OUTDATED_HINT = (
-    "This backend has no ListContacts, which BlueFerry added after 0.7.1. "
-    f"Rebuild it from source:\n{BLUEFERRY_BUILD}"
+    "This backend does not expose ListContacts, so its phonebook cannot be "
+    f"enumerated. Update it from {BLUEFERRY_HOME} and reopen."
 )
 BLUEFERRY_MISSING_HINT = (
-    "Install BlueFerry and pair your iPhone. It is not in any package "
-    f"repository, so build it from source:\n{BLUEFERRY_BUILD}"
+    "This source needs the BlueFerry backend and a paired iPhone. Install it "
+    f"from {BLUEFERRY_HOME} if you want it; every other source works without."
 )
 
 READY = "ready"          # configured, reachable, has something to give
