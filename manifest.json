@@ -4,6 +4,7 @@
   "name": "OmaDex",
   "version": "1.0.6",
   "author": "Pete Jackson",
+  "license": "MIT",
   "description": "Search every address book you have and act on a contact",
   "kinds": [
     "overlay"
